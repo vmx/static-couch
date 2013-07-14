@@ -18,17 +18,17 @@ Directory structure
 The input directory for the script expects the files in the following
 structure:
 
-+-- doc1.json
-+-- doc2.json
-+-- doc2/
-|   +-- attachment.png
-|   +-- anotherone.txt
-|   \-- somesubdir/
-|       +-- even.jpg
-|       \-- more.txt
-+-- doc3.json
-\-- doc3/
-    \-- singleattachment.png
+    +-- doc1.json
+    +-- doc2.json
+    +-- doc2/
+    |   +-- attachment.png
+    |   +-- anotherone.txt
+    |   \-- somesubdir/
+    |       +-- even.jpg
+    |       \-- more.txt
+    +-- doc3.json
+    \-- doc3/
+        \-- singleattachment.png
 
 The output directory will contain a file calles `index.html`. In reality it's
 a JSON files, but most web servers are already configured to serve up the

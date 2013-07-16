@@ -9,6 +9,9 @@ import mimetypes
 import os
 import shutil
 import sys
+import urllib
+
+import requests
 
 
 def parse_args():
@@ -16,7 +19,8 @@ def parse_args():
     parser.add_argument('--out-dir', help='Output directory', default='build')
     parser.add_argument('--force', help='Overwrite existing output',
                         action='store_true')
-    parser.add_argument('src')
+    parser.add_argument('src',
+                        help='Input directory or URL to an Apache CouchDB')
     args = parser.parse_args()
 
     try:
@@ -102,9 +106,7 @@ def write_files(src, out_dir, files, md5s):
                 out.write('\n')
 
 
-def main():
-    args = parse_args()
-
+def from_dir(args):
     files = json_files(args['src'])
     md5s = write_changes(args['src'], args['out_dir'], files)
     write_files(args['src'], args['out_dir'], files, md5s)
@@ -113,6 +115,41 @@ def main():
     with open(os.path.join(out_dir, 'index.html'), 'w') as f:
         f.write(json.dumps({"update_seq": len(files)}))
         f.write('\n')
+
+
+def from_couch(args):
+    r = requests.get(args['src'])
+    with open(os.path.join(args['out_dir'], 'index.html'), 'wb') as index:
+        index.write(r.content)
+
+    r = requests.get(args['src'] + '_changes')
+    with open(os.path.join(args['out_dir'], '_changes'), 'wb') as changes:
+        changes.write(r.content)
+        doc_ids = [doc['id'] for doc in r.json()['results']]
+        #print(docs)
+
+    for doc_id in doc_ids:
+        r = requests.get(args['src'] + doc_id, params={'attachments': 'true'},
+                         headers={'Accept': 'application/json'})
+        doc_path = os.path.join(args['out_dir'], doc_id)
+        try:
+            doc = open(doc_path, 'wb')
+        except IOError as ex:
+            os.makedirs(os.path.dirname(doc_path))
+            doc = open(doc_path, 'wb')
+        doc.write(r.content)
+        doc.close()
+
+
+def main():
+    args = parse_args()
+
+    if urllib.parse.urlparse(args['src']).scheme.startswith('http'):
+        if args['src'][-1] != '/':
+            args['src'] += '/'
+        from_couch(args)
+    else:
+        from_dir(args)
 
 
 if __name__ == '__main__':

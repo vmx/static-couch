@@ -35,6 +35,19 @@ a JSON files, but most web servers are already configured to serve up the
 contents of an `index.html` when you access the direcoty.
 
 
+Static version of an Apache CouchDB instance
+--------------------------------------------
+
+If you want to create a replicatable static version of an Apache CouchDB
+instance, you supply an URL as source.
+
+
+Dependencies
+------------
+
+ - requests
+
+
 License
 -------
 

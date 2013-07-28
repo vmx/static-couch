@@ -15,7 +15,8 @@ import requests
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--out-dir', help='Output directory', default='build')
     parser.add_argument('--force', help='Overwrite existing output',
                         action='store_true')
@@ -45,15 +46,29 @@ def md5sum(filename):
             if not data:
                 break
             md5.update(data)
+    return md5
+
+
+def create_digest(path, name):
+    try:
+        #md5 = md5sum(filename)
+        md5 = md5sum(os.path.join(path, name + '.json'))
+    except IOError as ex:
+        md5 = hashlib.md5(b'{}')
+    # Make sure the hash is different, even if the file contents is the same
+    md5.update(name.encode('utf-8'))
     return md5.hexdigest()
 
 
 def json_files(src):
-    files = []
+    files = set()
     for f in os.listdir(src):
         name, ext = os.path.splitext(f)
-        if ext == '.json':
-            files.append(name)
+        fullpath = os.path.join(src, f)
+        # Store the names of all JSON files, but also all direcctories
+        # without a corresponding JSON file
+        if ext == '.json' or (ext == '' and os.path.isdir(fullpath)):
+            files.add(name)
     return files
 
 
@@ -64,7 +79,7 @@ def write_changes(src, out_dir, files):
         for i, f in enumerate(files):
             if i:
                 changes.write(',\n')
-            md5 = md5sum(os.path.join(src, f + '.json'))
+            md5 = create_digest(src, f)
             changes.write('{{"seq":{},"id":"{}","changes":[{{"rev":"1-{}"}}]}}'
                           .format(i+1, f, md5))
             md5s.append(md5)
@@ -94,16 +109,22 @@ def write_files(src, out_dir, files, md5s):
     for key, md5 in zip(files, md5s):
         path = os.path.join(src, key)
 
-        with open(path + '.json') as f:
-            doc = json.load(f)
-            doc['_id'] = key
-            doc['_rev'] = '1-{}'.format(md5)
-            doc['_revisions'] = {'start': 1, 'ids': [md5]}
-            doc['_attachments'] = process_attachments(path)
+        try:
+            with open(path + '.json') as f:
+                doc = json.load(f)
+        # There's only a directory with attachments and not corresponding
+        # JSON file
+        except IOError as ex:
+            doc = {}
 
-            with open(os.path.join(out_dir, key), 'w') as out:
-                json.dump(doc, out, separators=(',', ':'))
-                out.write('\n')
+        doc['_id'] = key
+        doc['_rev'] = '1-{}'.format(md5)
+        doc['_revisions'] = {'start': 1, 'ids': [md5]}
+        doc['_attachments'] = process_attachments(path)
+
+        with open(os.path.join(out_dir, key), 'w') as out:
+            json.dump(doc, out, separators=(',', ':'))
+            out.write('\n')
 
 
 def from_dir(args):
